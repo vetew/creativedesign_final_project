@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --page:#E9EEF0; --ink:#1E2A2E; --muted:#5D6B70;
+  --body:#A8C3A0; --body-edge:#8BA984; --lcd:#C9D6B3; --lcd-ink:#26331F; --lcd-angry:#E8A79A;
+  --key:#FAFAF7; --key-ink:#26331F; --op:#3E5641; --op-ink:#F1F5EE; --eq:#E3B23C; --eq-ink:#2B2410;
+  --bubble:#FFFFFF; --bubble-ink:#1E2A2E; --panel:#FFFFFF; --line:#D3DBDE; --focus:#2D5BFF;
+  font-family:'Fredoka',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --page:#151B1D; --ink:#E7EEF0; --muted:#9AA8AD; --bubble:#26302F; --bubble-ink:#EEF3F2;
+    --panel:#1F2729; --line:#34403F; --focus:#8EA6FF;
+  }
+}
+:root[data-theme="dark"]{
+  --page:#151B1D; --ink:#E7EEF0; --muted:#9AA8AD; --bubble:#26302F; --bubble-ink:#EEF3F2;
+  --panel:#1F2729; --line:#34403F; --focus:#8EA6FF;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+html,body{height:100%;margin:0}
+body{background:var(--page);color:var(--ink);display:flex;align-items:center;justify-content:center;
+  overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+button{font:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+
+#stage{display:flex;flex-direction:column;align-items:center;gap:14px;padding:16px;width:100%;max-width:400px}
+
+/* Speech bubble */
+#bubble{position:relative;align-self:stretch;min-height:64px;background:var(--bubble);color:var(--bubble-ink);
+  border-radius:18px;padding:14px 18px;font-size:18px;line-height:1.35;font-weight:500;
+  box-shadow:0 10px 28px rgba(20,30,30,.14);opacity:0;transform:translateY(6px);transition:opacity .3s,transform .3s}
+#bubble.on{opacity:1;transform:none}
+#bubble::after{content:"";position:absolute;left:58px;bottom:-11px;border:12px solid transparent;border-bottom:0;border-top-color:var(--bubble)}
+
+/* Calculator */
+#calc{width:100%;background:var(--body);border-radius:28px;padding:20px 18px 22px;
+  box-shadow:inset 0 -6px 0 var(--body-edge),0 22px 50px rgba(20,35,25,.25);transition:transform .1s}
+#calc.shake{animation:shake .45s}
+@keyframes shake{20%{transform:translateX(-8px) rotate(-1.5deg)}40%{transform:translateX(7px) rotate(1deg)}60%{transform:translateX(-5px)}80%{transform:translateX(3px)}}
+#brand{display:flex;justify-content:space-between;align-items:center;margin:0 4px 10px;color:#3E5641;font-weight:600;font-size:14px}
+#brand .solar{width:58px;height:16px;border-radius:4px;background:repeating-linear-gradient(90deg,#3B4A3A 0 13px,#55665A 13px 14.5px)}
+
+#lcd{background:var(--lcd);border-radius:14px;padding:12px 14px;display:flex;gap:12px;align-items:center;
+  box-shadow:inset 0 3px 8px rgba(0,0,0,.25);transition:background .3s;min-height:96px}
+#lcd.angry{background:var(--lcd-angry)}
+#face{width:62px;height:62px;flex:none}
+#face *{stroke:var(--lcd-ink);stroke-width:4;stroke-linecap:round;fill:none;transition:d .3s}
+#face .eye{fill:var(--lcd-ink);stroke:none}
+#screen{flex:1;min-width:0;text-align:right;color:var(--lcd-ink);font-family:'Share Tech Mono',ui-monospace,Menlo,monospace}
+#expr{font-size:16px;min-height:20px;opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#out{font-size:40px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+#reply{display:none;margin-top:12px;gap:8px}
+#reply.on{display:flex}
+#msg{flex:1;min-width:0;border:0;border-radius:12px;padding:11px 14px;font:500 17px 'Fredoka',system-ui,sans-serif;
+  background:#EEF3EA;color:#26331F;-webkit-user-select:text;user-select:text}
+#msg::placeholder{color:#7E8C78}
+#send{border:0;border-radius:12px;padding:0 16px;background:var(--op);color:var(--op-ink);font-weight:600}
+
+#keys{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px}
+.k{border:0;border-radius:16px;height:58px;font-size:24px;font-weight:500;background:var(--key);color:var(--key-ink);
+  box-shadow:0 4px 0 rgba(30,45,30,.25);transition:transform .05s,box-shadow .05s}
+.k:active,.k.press{transform:translateY(3px);box-shadow:0 1px 0 rgba(30,45,30,.25)}
+.k.op{background:var(--op);color:var(--op-ink)}
+.k.eq{background:var(--eq);color:var(--eq-ink);grid-row:span 2;height:auto}
+.k.zero{grid-column:span 2}
+.k.fn{background:#E4EADF}
+#calc.locked .k{opacity:.55}
+
+/* Experimenter panel */
+#panel{position:fixed;left:12px;top:calc(12px + env(safe-area-inset-top,0px));z-index:5;width:min(300px,calc(100vw - 24px));
+  background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:14px;font-size:13px;
+  box-shadow:0 20px 50px rgba(0,0,0,.25);display:none;font-family:system-ui,sans-serif}
+#panel.on{display:block}
+#panel h2{margin:0 0 4px;font-size:15px}
+#panel p{margin:0 0 10px;color:var(--muted)}
+#panel .row{display:flex;gap:6px;margin-bottom:10px;align-items:center}
+#panel .row button{flex:1;padding:7px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--ink);font-weight:600}
+#mood{font-weight:700}
+#log{max-height:180px;overflow:auto;margin:0;padding:8px;border:1px solid var(--line);border-radius:8px;
+  font:12px/1.45 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;-webkit-user-select:text;user-select:text}
+
+@media (max-height:700px){ .k{height:48px;font-size:21px} #lcd{min-height:84px} #out{font-size:34px} }
+@media (prefers-reduced-motion:reduce){ #calc.shake{animation:none} #bubble{transition:none} }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="bubble" aria-live="polite"></div>
+  <div id="calc">
+    <div id="brand"><span id="logo">Calc 3000</span><span class="solar" aria-hidden="true"></span></div>
+    <div id="lcd">
+      <svg id="face" viewBox="0 0 62 62" aria-hidden="true">
+        <path class="brow" id="browL" d="M12 18 L24 18"/>
+        <path class="brow" id="browR" d="M38 18 L50 18"/>
+        <ellipse class="eye" id="eyeL" cx="18" cy="27" rx="3.5" ry="4.5"/>
+        <ellipse class="eye" id="eyeR" cx="44" cy="27" rx="3.5" ry="4.5"/>
+        <path id="mouth" d="M18 44 Q31 52 44 44"/>
+      </svg>
+      <div id="screen"><div id="expr">&nbsp;</div><div id="out">0</div></div>
+    </div>
+    <div id="reply">
+      <input id="msg" type="text" autocomplete="off" placeholder="Type your reply…" aria-label="Reply to the calculator">
+      <button id="send">Send</button>
+    </div>
+    <div id="keys">
+      <button class="k fn" data-k="C">C</button>
+      <button class="k fn" data-k="back" aria-label="Backspace">⌫</button>
+      <button class="k op" data-k="/">÷</button>
+      <button class="k op" data-k="*">×</button>
+      <button class="k" data-k="7">7</button>
+      <button class="k" data-k="8">8</button>
+      <button class="k" data-k="9">9</button>
+      <button class="k op" data-k="-">−</button>
+      <button class="k" data-k="4">4</button>
+      <button class="k" data-k="5">5</button>
+      <button class="k" data-k="6">6</button>
+      <button class="k op" data-k="+">+</button>
+      <button class="k" data-k="1">1</button>
+      <button class="k" data-k="2">2</button>
+      <button class="k" data-k="3">3</button>
+      <button class="k eq" data-k="=">=</button>
+      <button class="k zero" data-k="0">0</button>
+      <button class="k" data-k=".">.</button>
+    </div>
+  </div>
+</div>
+
+<div id="panel" aria-label="Experimenter controls">
+  <h2>Experimenter controls</h2>
+  <p>Shift + T (outside the reply box) or triple-click "Calc 3000" shows or hides this panel.</p>
+  <div class="row">Mood:&nbsp;<span id="mood">0</span></div>
+  <div class="row"><button id="bReset">Reset test</button><button id="bCopy">Copy log</button></div>
+  <pre id="log"></pre>
+</div>
+
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const out=$('out'), exprEl=$('expr'), bubble=$('bubble'), calc=$('calc'), lcd=$('lcd'), reply=$('reply'), msg=$('msg');
+
+const S={expr:'',justEvaluated:false,mood:0,please:false,pending:null,refusals:0,locked:false,
+  lastResultAt:0,eqTimes:[],start:performance.now(),busy:false};
+
+/* ---------- log ---------- */
+const lines=[];
+function log(t){
+  const s=Math.round((performance.now()-S.start)/1000);
+  lines.unshift(String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')+'  '+t);
+  $('log').textContent=lines.join('\n');
+}
+
+/* ---------- face ---------- */
+const FACES={
+  happy:   {mouth:'M18 42 Q31 54 44 42', bl:'M12 17 L24 15', br:'M38 15 L50 17', ey:4.5},
+  delight: {mouth:'M16 40 Q31 58 46 40', bl:'M12 14 L24 12', br:'M38 12 L50 14', ey:2},
+  neutral: {mouth:'M20 46 L42 46',       bl:'M12 18 L24 18', br:'M38 18 L50 18', ey:4.5},
+  annoyed: {mouth:'M20 48 Q31 43 42 48', bl:'M12 16 L24 20', br:'M38 20 L50 16', ey:3},
+  offended:{mouth:'M18 50 Q31 38 44 50', bl:'M11 14 L25 22', br:'M37 22 L51 14', ey:4.5},
+  smug:    {mouth:'M20 46 Q34 50 44 41', bl:'M12 18 L24 18', br:'M38 14 L50 18', ey:2.5},
+  think:   {mouth:'M24 46 L38 46',       bl:'M12 15 L24 17', br:'M38 18 L50 18', ey:4.5}
+};
+let faceNow='neutral';
+function face(name){
+  const f=FACES[name]; faceNow=name;
+  $('mouth').setAttribute('d',f.mouth);
+  $('browL').setAttribute('d',f.bl); $('browR').setAttribute('d',f.br);
+  $('eyeL').setAttribute('ry',f.ey); $('eyeR').setAttribute('ry',f.ey);
+}
+function restingFace(){ face(S.mood>=2?'happy':S.mood<=-2?'annoyed':'neutral'); }
+// blinking
+setInterval(()=>{
+  if(faceNow==='delight') return;
+  const ry=FACES[faceNow].ey;
+  $('eyeL').setAttribute('ry',.6); $('eyeR').setAttribute('ry',.6);
+  setTimeout(()=>{$('eyeL').setAttribute('ry',ry);$('eyeR').setAttribute('ry',ry);},140);
+},4200);
+
+/* ---------- bubble ---------- */
+let bubbleTimer=null;
+function say(text,ms){
+  bubble.textContent=text; bubble.classList.add('on');
+  clearTimeout(bubbleTimer);
+  bubbleTimer=setTimeout(()=>bubble.classList.remove('on'),ms||5000);
+}
+function setMood(d,why){
+  S.mood=Math.max(-4,Math.min(4,S.mood+d));
+  $('mood').textContent=S.mood+(S.mood>=2?' (happy)':S.mood<=-2?' (grumpy)':' (neutral)');
+}
+
+/* ---------- maths ---------- */
+function evaluate(e){
+  if(!e) return 0;
+  let src=e.replace(/[+\-*/]$/,'');
+  if(src.startsWith('-')) src='0'+src;
+  const tok=src.match(/\d*\.?\d+|\d+\.|[+\-*/]/g);
+  if(!tok) return 0;
+  const nums=[],ops=[];
+  for(const t of tok){ if('+-*/'.includes(t)) ops.push(t); else nums.push(parseFloat(t)); }
+  // * and /
+  let n=[nums[0]], o=[];
+  for(let i=0;i<ops.length;i++){
+    const b=nums[i+1];
+    if(ops[i]==='*') n[n.length-1]*=b;
+    else if(ops[i]==='/'){ if(b===0) return NaN; n[n.length-1]/=b; }
+    else { o.push(ops[i]); n.push(b); }
+  }
+  let r=n[0];
+  for(let i=0;i<o.length;i++) r=o[i]==='+'?r+n[i+1]:r-n[i+1];
+  return r;
+}
+function fmt(x){
+  if(!isFinite(x)) return 'Error';
+  const r=parseFloat(x.toPrecision(12));
+  return String(r);
+}
+function pretty(e){return e.replace(/\*/g,'×').replace(/\//g,'÷').replace(/-/g,'−');}
+function render(){ exprEl.textContent=S.expr?pretty(S.expr):'\u00a0'; }
+
+/* ---------- keys ---------- */
+function press(k){
+  if(S.locked||S.busy){ if(S.locked){calc.classList.remove('shake');void calc.offsetWidth;calc.classList.add('shake');} return; }
+  if(k==='='){ equals(); return; }
+  if(k==='C'){ S.expr=''; out.textContent='0'; S.justEvaluated=false; S.pending=null; render(); return; }
+  if(k==='back'){ S.expr=S.expr.slice(0,-1); render(); return; }
+  if('+-*/'.includes(k)){
+    if(S.justEvaluated){ S.expr=out.textContent==='Error'?'':out.textContent; S.justEvaluated=false; }
+    if(!S.expr && k!=='-') S.expr='0';
+    if(/[+\-*/]$/.test(S.expr)) S.expr=S.expr.slice(0,-1);
+    S.expr+=k; render(); return;
+  }
+  // digit or dot
+  if(S.justEvaluated){ S.expr=''; S.justEvaluated=false; }
+  const lastNum=(S.expr.match(/[\d.]*$/)||[''])[0];
+  if(k==='.' && lastNum.includes('.')) return;
+  S.expr+=(k==='.' && !lastNum)?'0.':k;
+  render();
+  out.textContent=(S.expr.match(/[\d.]*$/)||['0'])[0]||'0';
+}
+
+function showResult(value,{wrong=false}={}){
+  S.busy=true; face('think'); out.textContent='';
+  const delay=S.mood>=2?250:S.mood<=-2?1800:700;
+  let dots=0; const iv=setInterval(()=>{dots=(dots+1)%4;out.textContent='.'.repeat(dots);},220);
+  setTimeout(()=>{
+    clearInterval(iv); S.busy=false;
+    out.textContent=fmt(value);
+    S.justEvaluated=true; S.lastResultAt=performance.now();
+    if(wrong) face('smug'); else restingFace();
+  },delay);
+}
+
+function equals(){
+  if(S.busy) return;
+  const now=performance.now();
+  S.eqTimes=S.eqTimes.filter(t=>now-t<1500); S.eqTimes.push(now);
+  if(!S.expr || S.justEvaluated) return;
+  if(S.eqTimes.length>=3){
+    setMood(-1); face('annoyed'); say("Patience. Pressing harder won't make me faster.");
+    log('Pressed = repeatedly (impatient)'); return;
+  }
+  const correct=evaluate(S.expr);
+  exprEl.textContent=pretty(S.expr.replace(/[+\-*/]$/,''))+' =';
+
+  if(S.please){
+    S.please=false; S.pending=null;
+    if(isNaN(correct)){ say("Even with manners, I can't divide by zero. Sorry!"); log('Division by zero'); showResult(NaN); return; }
+    log('Calculated politely: '+S.expr+' = '+fmt(correct));
+    say(S.mood>=2?"For you? Instantly! ✨":"Since you asked so nicely: here you go!");
+    showResult(correct); return;
+  }
+
+  // no please
+  S.refusals++;
+  if(S.mood>=2){
+    log('No please, but mood high: calculated anyway');
+    say("You forgot the magic word… but I like you, so here.");
+    showResult(correct); return;
+  }
+  if(S.mood<=-2 || S.refusals>=3){
+    let wrong=correct;
+    if(isFinite(correct)){
+      const off=[1,-1,2,10,-10][Math.floor(Math.random()*5)];
+      wrong=Number.isInteger(correct)?correct+off:correct*(1+(Math.random()*.2-.1));
+    }
+    log('Gave WRONG answer on purpose: '+S.expr+' = '+fmt(wrong)+' (correct '+fmt(correct)+')');
+    say("Fine. Here's your answer.",3000);
+    showResult(wrong,{wrong:true});
+    setTimeout(()=>say("…or is it? 😏 Ask nicely if you want to be sure."),3600);
+    S.pending=S.expr;
+    return;
+  }
+  S.pending=S.expr;
+  face('annoyed'); out.textContent='?';
+  say(S.refusals===1?"Ahem. Aren't you forgetting something?":"I'm still waiting for the magic word.",7000);
+  showReply();
+  log('Refused (no please), refusal #'+S.refusals);
+}
+
+/* ---------- conversation ---------- */
+function showReply(){ if(!reply.classList.contains('on')){ reply.classList.add('on'); log('Reply box appeared'); } }
+const RUDE=/\b(stupid|dumb|idiot|useless|shut up|hurry|come on|just do it|wtf|damn|hate|f+u+c*k+|shit|crap|loser|work already)\b/;
+function handleMessage(text){
+  const t=text.toLowerCase().trim(); if(!t) return;
+  log('User said: "'+text+'"');
+  if(RUDE.test(t)){
+    setMood(-2); face('offended'); lcd.classList.add('angry'); S.locked=true; calc.classList.add('locked');
+    say("Excuse me?! I'm not working with that attitude. I need a moment.",4000);
+    log('Offended: locked for 4s');
+    setTimeout(()=>{S.locked=false;calc.classList.remove('locked');lcd.classList.remove('angry');restingFace();
+      say("Okay. I'm calmer now. Let's try again, nicely.");},4000);
+    return;
+  }
+  if(/\bsorry\b|apolog/.test(t)){
+    setMood(+2); face('happy'); say("Apology accepted. Thank you for saying that. 🙂"); log('Apology accepted'); return;
+  }
+  if(/\b(please|pls|plz|kindly)\b/.test(t)){
+    setMood(+1); S.please=true; S.refusals=0;
+    if(S.pending){
+      face('delight'); say("Oh, how kind of you! Of course.");
+      S.expr=S.pending; S.justEvaluated=false; const e=S.pending; S.pending=null;
+      const run=()=>{ if(S.busy){setTimeout(run,200);return;} S.expr=e; S.justEvaluated=false; S.please=true; S.eqTimes=[]; equals(); }; setTimeout(run,600);
+      log('Said please for pending calculation: '+e);
+    } else { face('happy'); say("Lovely manners! What would you like me to calculate?"); }
+    return;
+  }
+  if(/\b(thank|thanks|thx|ty|cheers)\b/.test(t)){
+    const recent=performance.now()-S.lastResultAt<20000;
+    setMood(recent?+1:+0.5); face('delight');
+    say(recent?"You're very welcome! Nobody ever thanks a calculator. 😊":"For what? But okay, you're welcome!");
+    log('Thanked the calculator'+(recent?' after a result':''));
+    setTimeout(restingFace,1800); return;
+  }
+  if(/\b(hi|hello|hey|good (morning|afternoon|evening))\b/.test(t)){
+    setMood(+0.5); face('happy'); say("Oh, hello! Nice of you to say hi."); return;
+  }
+  face('think'); say("I'm only a calculator. I understand numbers… and good manners.");
+  setTimeout(restingFace,1500);
+}
+function sendMsg(){ const v=msg.value; msg.value=''; handleMessage(v); }
+$('send').addEventListener('click',()=>{sendMsg();msg.focus();});
+msg.addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();sendMsg();} e.stopPropagation(); });
+
+/* ---------- input wiring ---------- */
+document.querySelectorAll('.k').forEach(b=>b.addEventListener('click',()=>press(b.dataset.k)));
+window.addEventListener('keydown',e=>{
+  if(e.target===msg) return;
+  if(e.shiftKey && e.code==='KeyT'){ e.preventDefault(); $('panel').classList.toggle('on'); return; }
+  let k=null;
+  if(/^[0-9.]$/.test(e.key)) k=e.key;
+  else if('+-*/'.includes(e.key)) k=e.key;
+  else if(e.key==='x'||e.key==='X') k='*';
+  else if(e.key==='Enter'||e.key==='=') k='=';
+  else if(e.key==='Backspace') k='back';
+  else if(e.key==='Escape'||e.key==='Delete') k='C';
+  else if(/^[a-zA-Z]$/.test(e.key) && !e.ctrlKey && !e.metaKey){
+    // typing letters opens the reply box: a hidden way to talk to the calculator
+    e.preventDefault(); showReply(); msg.focus(); msg.value+=e.key; return;
+  }
+  if(k){ e.preventDefault(); press(k);
+    const btn=document.querySelector('.k[data-k="'+(k==='back'?'back':k)+'"]');
+    if(btn){btn.classList.add('press');setTimeout(()=>btn.classList.remove('press'),90);} }
+});
+
+/* ---------- panel ---------- */
+let logoClicks=[];
+$('logo').addEventListener('click',()=>{const n=Date.now();logoClicks=logoClicks.filter(x=>n-x<800);logoClicks.push(n);
+  if(logoClicks.length>=3){logoClicks=[];$('panel').classList.toggle('on');}});
+$('bReset').addEventListener('click',()=>{
+  Object.assign(S,{expr:'',justEvaluated:false,mood:0,please:false,pending:null,refusals:0,locked:false,lastResultAt:0,eqTimes:[],start:performance.now(),busy:false});
+  setMood(0); out.textContent='0'; render(); reply.classList.remove('on'); bubble.classList.remove('on');
+  calc.classList.remove('locked'); lcd.classList.remove('angry'); face('neutral');
+  lines.length=0; log('Test reset');
+});
+$('bCopy').addEventListener('click',()=>{
+  try{navigator.clipboard.writeText(lines.slice().reverse().join('\n'));$('bCopy').textContent='Copied';setTimeout(()=>$('bCopy').textContent='Copy log',1200);}catch(_){}
+});
+
+setMood(0); face('neutral'); log('Test started');
+})();
+</script>
+</body>
+</html>
